@@ -204,7 +204,11 @@ import { usePanelAnimationSettings, usePanelPresence } from "../panelAnimations"
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl";
 import { isPreviewFocused } from "../lib/previewFocus";
-import { focusTerminalOnThreadEnter, getTerminalFocusOwner } from "../lib/terminalFocus";
+import {
+  focusTerminalOnThreadEnter,
+  getTerminalFocusOwner,
+  rememberThreadFocus,
+} from "../lib/terminalFocus";
 import {
   deriveLogicalProjectKeyFromSettings,
   selectProjectGroupingSettings,
@@ -2648,13 +2652,26 @@ export default function ChatView(props: ChatViewProps) {
     setTerminalUiLaunchContext(null);
   }
 
-  // Entering a thread with its drawer open focuses the drawer terminal; opening
-  // it from a handler requests focus there. A closed drawer leaves focus to the
-  // composer effect above.
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- focuses the open drawer terminal when entering a thread
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- remove the old thread's listener before the next view can take focus
+  useLayoutEffect(() => {
+    if (!activeThreadRef || embedded || backgroundThread) return;
+    const onFocus = (event: FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (isInSideChatPane(target)) return;
+      if (target.matches('[data-testid="composer-editor"]'))
+        rememberThreadFocus(activeThreadRef, "composer");
+      else if (target.closest('[data-terminal-owner="drawer"]'))
+        rememberThreadFocus(activeThreadRef, "drawer");
+    };
+    document.addEventListener("focusin", onFocus);
+    return () => document.removeEventListener("focusin", onFocus);
+  }, [activeThreadRef, embedded, backgroundThread]);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- restores the active thread's focus
   useEffect(() => {
-    if (activeThreadRef && !embedded) return focusTerminalOnThreadEnter(activeThreadRef);
-  }, [activeThreadRef, embedded]);
+    if (activeThreadRef && !embedded)
+      return focusTerminalOnThreadEnter(activeThreadRef, focusComposerStable);
+  }, [activeThreadRef, embedded, focusComposerStable]);
 
   const getShortcutContext = (eventTarget: EventTarget | null = document.activeElement) => ({
     terminalFocus: getTerminalFocusOwner() !== null,

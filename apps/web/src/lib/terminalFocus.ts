@@ -36,6 +36,7 @@ let pendingFocus: { readonly threadKey: string; readonly terminalId: string } | 
 // layout phase, before ChatView's thread-enter effect runs.
 let enteredThreadKey: string | null = null;
 let navigationRequestThreadKey: string | null = null;
+const lastThreadFocus = new Map<string, "composer" | "drawer">();
 
 function isPending(threadKey: string, terminalId: string): boolean {
   return pendingFocus?.threadKey === threadKey && pendingFocus.terminalId === terminalId;
@@ -113,24 +114,39 @@ export function focusTerminalOnNavigation(threadRef: ScopedThreadRef, terminalId
   focusTerminal(threadRef, terminalId);
 }
 
-/**
- * Entering a thread with its drawer open focuses the drawer terminal, unless a
- * navigating handler already asked for a terminal there. Returns the leave
- * cleanup for ChatView's effect.
- */
-export function focusTerminalOnThreadEnter(threadRef: ScopedThreadRef): () => void {
+export function rememberThreadFocus(
+  threadRef: ScopedThreadRef,
+  focus: "composer" | "drawer",
+): void {
+  lastThreadFocus.set(scopedThreadKey(threadRef), focus);
+}
+
+/** Restores thread focus unless navigation explicitly requested a terminal. */
+export function focusTerminalOnThreadEnter(
+  threadRef: ScopedThreadRef,
+  focusComposer: () => void = () => {},
+): () => void {
   const threadKey = scopedThreadKey(threadRef);
   const requestedByHandler = navigationRequestThreadKey === threadKey;
   navigationRequestThreadKey = null;
   enteredThreadKey = threadKey;
+  let frame: number | null = null;
   if (!requestedByHandler) {
     const { terminalOpen, activeTerminalId } = selectThreadTerminalUiState(
       useTerminalUiStateStore.getState().terminalUiStateByThreadKey,
       threadRef,
     );
-    if (terminalOpen && activeTerminalId) focusTerminal(threadRef, activeTerminalId);
+    if (terminalOpen && activeTerminalId) {
+      if (lastThreadFocus.get(threadKey) === "drawer") {
+        focusTerminal(threadRef, activeTerminalId);
+      } else {
+        frame = window.requestAnimationFrame(focusComposer);
+      }
+    }
   }
   return () => {
+    if (frame !== null) window.cancelAnimationFrame(frame);
+    cancelTerminalFocus(threadRef);
     // A handler navigating elsewhere marks its target before this cleanup runs.
     if (enteredThreadKey === threadKey) enteredThreadKey = null;
   };

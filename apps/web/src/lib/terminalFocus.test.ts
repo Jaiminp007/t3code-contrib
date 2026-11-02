@@ -13,12 +13,54 @@ import {
   focusTerminalOnNavigation,
   focusTerminalOnThreadEnter,
   registerTerminalFocusTarget,
+  rememberThreadFocus,
 } from "./terminalFocus";
 
 const threadRef = (threadId: string) =>
   scopeThreadRef(EnvironmentId.make("env"), ThreadId.make(threadId));
 
 describe("focusTerminal", () => {
+  it("defaults to the composer and cancels its deferred focus on leave", () => {
+    const ref = threadRef("default-focus");
+    useTerminalUiStateStore.getState().ensureTerminal(ref, "a", { open: true, active: true });
+    const composer = vi.fn();
+    const cancel = vi.fn();
+    vi.stubGlobal("window", { requestAnimationFrame: () => 123, cancelAnimationFrame: cancel });
+    const leave = focusTerminalOnThreadEnter(ref, composer);
+    expect(composer).not.toHaveBeenCalled();
+    leave();
+    expect(cancel).toHaveBeenCalledWith(123);
+    vi.unstubAllGlobals();
+  });
+  it("restores the composer after leaving it focused, and the drawer after focusing it", () => {
+    const ref = threadRef("remembered-focus");
+    useTerminalUiStateStore.getState().ensureTerminal(ref, "a", { open: true, active: true });
+    const drawer = vi.fn(() => true);
+    const composer = vi.fn();
+    const unregister = registerTerminalFocusTarget({
+      threadRef: ref,
+      terminalId: "a",
+      focus: drawer,
+    });
+    vi.stubGlobal("window", {
+      requestAnimationFrame: (fn: () => void) => {
+        fn();
+        return 1;
+      },
+      cancelAnimationFrame: vi.fn(),
+    });
+    rememberThreadFocus(ref, "composer");
+    const leave = focusTerminalOnThreadEnter(ref, composer);
+    expect(composer).toHaveBeenCalledOnce();
+    expect(drawer).not.toHaveBeenCalled();
+    leave();
+    rememberThreadFocus(ref, "drawer");
+    const leaveAgain = focusTerminalOnThreadEnter(ref, composer);
+    expect(drawer).toHaveBeenCalledOnce();
+    leaveAgain();
+    unregister();
+    vi.unstubAllGlobals();
+  });
   it("focuses a mounted target right away", () => {
     const ref = threadRef("mounted");
     const focus = vi.fn(() => true);
@@ -167,8 +209,9 @@ describe("focusTerminal", () => {
     unregister();
   });
 
-  it("entering a thread with its drawer open focuses the active drawer terminal", () => {
+  it("entering a thread with a previously focused drawer restores its terminal", () => {
     const ref = threadRef("entered");
+    rememberThreadFocus(ref, "drawer");
     useTerminalUiStateStore.getState().ensureTerminal(ref, "a", { open: true, active: true });
     const focus = vi.fn(() => true);
     const unregister = registerTerminalFocusTarget({ threadRef: ref, terminalId: "a", focus });
@@ -183,6 +226,7 @@ describe("focusTerminal", () => {
   it("entering a thread keeps the request its navigating handler made", () => {
     const ref = threadRef("revealed");
     useTerminalUiStateStore.getState().ensureTerminal(ref, "drawer", { open: true, active: true });
+    rememberThreadFocus(ref, "composer");
     focusTerminalOnNavigation(ref, "panel");
 
     // React commit order: the new thread's viewports attach and take the
@@ -210,6 +254,7 @@ describe("focusTerminal", () => {
 
   it("re-entering a thread after in-thread terminal actions focuses the drawer", () => {
     const ref = threadRef("re-entered");
+    rememberThreadFocus(ref, "drawer");
     useTerminalUiStateStore.getState().ensureTerminal(ref, "drawer", { open: true, active: true });
     const drawer = vi.fn(() => true);
     const unregisterDrawer = registerTerminalFocusTarget({
@@ -232,6 +277,7 @@ describe("focusTerminal", () => {
 
   it("a navigating handler's request only outranks the next thread entry", () => {
     const ref = threadRef("revisited");
+    rememberThreadFocus(ref, "drawer");
     useTerminalUiStateStore.getState().ensureTerminal(ref, "drawer", { open: true, active: true });
     focusTerminalOnNavigation(ref, "panel");
     focusTerminalOnThreadEnter(threadRef("elsewhere"))();
