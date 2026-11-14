@@ -426,7 +426,9 @@ export function useThreadActions() {
 
     if (shouldNavigateToDraft && router.state.location.href === requestingRouteHref) {
       const navigationResult = await settlePromise(() =>
-        handleNewThread(scopeProjectRef(thread.environmentId, thread.projectId)),
+        handleNewThread(scopeProjectRef(thread.environmentId, thread.projectId), {
+          preferDefaultEnvironment: true,
+        }),
       );
       if (navigationResult._tag === "Failure") {
         return navigationResult;

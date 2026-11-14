@@ -830,7 +830,9 @@ function OpenCommandPaletteDialog(props: {
       return;
     }
 
-    await handleNewThread(scopeProjectRef(project.environmentId, project.id));
+    await handleNewThread(scopeProjectRef(project.environmentId, project.id), {
+      preferDefaultEnvironment: true,
+    });
   };
 
   // Pinning from a row keeps rows in place while the palette is open.

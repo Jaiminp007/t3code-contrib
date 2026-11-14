@@ -1250,7 +1250,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   );
   const startThreadInProjectFolder = useStableCallback((group: SidebarProjectSnapshot) => {
     if (isMobile) setOpenMobile(false);
-    void handleNewThread(scopeProjectRef(group.environmentId, group.id));
+    void handleNewThread(scopeProjectRef(group.environmentId, group.id), {
+      preferDefaultEnvironment: true,
+    });
   });
   const handleProjectFolderContextMenu = useStableCallback(
     (group: SidebarProjectSnapshot, position: { x: number; y: number }) => {
@@ -1603,7 +1605,10 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     return nextThread
       ? () => navigateToThread(scopeThreadRef(nextThread.environmentId, nextThread.id))
       : shell
-        ? () => void handleNewThread(scopeProjectRef(shell.environmentId, shell.projectId))
+        ? () =>
+            void handleNewThread(scopeProjectRef(shell.environmentId, shell.projectId), {
+              preferDefaultEnvironment: true,
+            })
         : () => void router.navigate({ to: "/" });
   };
 

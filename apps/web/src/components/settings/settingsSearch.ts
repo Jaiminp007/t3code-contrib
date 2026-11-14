@@ -1333,6 +1333,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["add pair backend host code ssh config agent tunnel saved t3 connect"],
   },
   {
+    id: "default-environment",
+    title: "Default environment",
+    to: "/settings/connections",
+    searchTerms: ["default machine environment new threads start run remote server preferred"],
+  },
+  {
     id: "load-balancing",
     title: "Load balancing",
     to: "/settings/connections",

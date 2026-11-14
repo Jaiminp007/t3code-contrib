@@ -22,6 +22,7 @@ interface NewThreadHandler {
   (
     projectRef: ScopedProjectRef,
     options?: {
+      preferDefaultEnvironment?: boolean;
       branch?: string | null;
       worktreePath?: string | null;
       envMode?: DraftThreadEnvMode;
@@ -109,6 +110,6 @@ export async function startNewThreadFromContext(
     return false;
   }
 
-  await context.handleNewThread(projectRef);
+  await context.handleNewThread(projectRef, { preferDefaultEnvironment: true });
   return true;
 }

@@ -119,7 +119,9 @@ describe("sidebar header new thread", () => {
       expect(startThread).not.toHaveBeenCalled();
     } else {
       expect(openCommandPalette).not.toHaveBeenCalled();
-      expect(startThread).toHaveBeenCalledExactlyOnceWith(currentProjectRef);
+      expect(startThread).toHaveBeenCalledExactlyOnceWith(currentProjectRef, {
+        preferDefaultEnvironment: true,
+      });
     }
   });
 });

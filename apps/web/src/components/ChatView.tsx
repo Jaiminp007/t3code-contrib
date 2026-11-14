@@ -1143,7 +1143,9 @@ export default function ChatView(props: ChatViewProps) {
       ? draftFallback.selection
       : activeProjectSettings.settings.defaultModelSelection;
   const handleNewThreadInActiveProject = () => {
-    startNewThreadForProject(activeProjectRef, handleNewThread);
+    startNewThreadForProject(activeProjectRef, (projectRef) =>
+      handleNewThread(projectRef, { preferDefaultEnvironment: true }),
+    );
   };
   const handleNewThreadInActiveProjectStable = useStableCallback(handleNewThreadInActiveProject);
   const projectGroupingSettings = selectProjectGroupingSettings(settings);

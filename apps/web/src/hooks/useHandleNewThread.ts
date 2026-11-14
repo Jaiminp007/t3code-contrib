@@ -38,6 +38,7 @@ import {
 } from "../lib/chatThreadActions";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { readT3ProjectFile } from "../lib/t3ProjectFileDefaults";
+import { resolveDefaultEnvironmentProjectRef } from "../lib/defaultEnvironment";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { environmentSummaries } from "../state/presentation";
 import { environmentServerConfigsAtom } from "../state/server";
@@ -93,8 +94,10 @@ export function createNewThreadHandler(router: AnyRouter) {
   };
 
   return (
-    projectRef: ScopedProjectRef,
+    requestedProjectRef: ScopedProjectRef,
     options?: {
+      /** Open on the default machine's copy of the project, when Settings names one. */
+      preferDefaultEnvironment?: boolean;
       branch?: string | null;
       worktreePath?: string | null;
       envMode?: DraftThreadEnvMode;
@@ -105,7 +108,19 @@ export function createNewThreadHandler(router: AnyRouter) {
     },
   ): Promise<{ draftId: DraftId; threadId: ThreadId } | null> => {
     const projects = readProjects();
-    const projectGroupingSettings = selectProjectGroupingSettings(getClientSettings());
+    const clientSettings = getClientSettings();
+    const projectGroupingSettings = selectProjectGroupingSettings(clientSettings);
+    const projectRef = options?.preferDefaultEnvironment
+      ? resolveDefaultEnvironmentProjectRef({
+          projectRef: requestedProjectRef,
+          projects,
+          groupingSettings: projectGroupingSettings,
+          defaultEnvironmentId: clientSettings.defaultEnvironmentId ?? null,
+          connectedEnvironmentIds: appAtomRegistry.get(
+            environmentSummaries.connectedEnvironmentIdsAtom,
+          ),
+        })
+      : requestedProjectRef;
     // Read at call time; status pushes replace the config map and would recreate every sidebar handler.
     const environmentServerConfigs = appAtomRegistry.get(environmentServerConfigsAtom);
     const targetServerSettings =
